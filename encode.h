@@ -46,6 +46,14 @@ bool ju87_mov_reg(ju87_encode_ctx *ctx, ju87_reg src, ju87_reg dst);
 
 void ju87_repz_ret(ju87_encode_ctx *ctx);
 
+#ifndef JU87_NDEBUG
+
+void ju87_dbg_dump_buf(ju87_encode_ctx *ctx);
+
+void ju87_dbg_clr_buf(ju87_encode_ctx *ctx);
+
+#endif /* JU87_NDEBUG */
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

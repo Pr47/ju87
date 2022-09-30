@@ -407,11 +407,148 @@ bool ju87_mov_imm_reg(ctx, src, dst)
   return true;
 }
 
-bool ju87_mov_imm_mem(ju87_encode_ctx *ctx, ju87_imm imm, ju87_mem mem) {}
+bool ju87_mov_imm_mem(ctx, imm, mem)
+  ju87_encode_ctx *ctx;
+  ju87_imm imm;
+  ju87_mem mem;
+{
+  if (imm.width == JU87_W_QWORD)
+    {
+      /* not allowed, use MOVABSQ first and then MOVQ */
+      return false;
+    }
 
-bool ju87_mov_reg_mem(ju87_encode_ctx *ctx, ju87_reg reg, ju87_mem mem) {}
+  prefix_modrm_sib pms;
+  clr_pms(&pms);
+  if (!make_pms_imm_mem(&pms, imm, mem))
+    {
+      return false;
+    }
 
-bool ju87_mov_mem_reg(ju87_encode_ctx *ctx, ju87_mem mem, ju87_reg reg) {}
+  encode_prefix(ctx, &pms);
+
+  switch (imm.width)
+    {
+      case JU87_W_BYTE:
+        encode_ctx_push_byte(ctx, 0xC6);
+        break;
+      case JU87_W_WORD:
+      case JU87_W_DWORD:
+        encode_ctx_push_byte(ctx, 0xC7);
+        break;
+      default:
+        assert(false);
+    }
+
+  encode_modrm_sib(ctx, &pms);
+  if (mem.offset)
+    {
+      encode_ctx_push_dword(ctx, mem.offset);
+    }
+
+  switch (imm.width)
+    {
+      case JU87_W_BYTE:
+        encode_ctx_push_byte(ctx, (uint8_t)imm.imm_value);
+        break;
+      case JU87_W_WORD:
+        encode_ctx_push_word(ctx, (uint16_t)imm.imm_value);
+        break;
+      case JU87_W_DWORD:
+        encode_ctx_push_dword(ctx, (uint32_t)imm.imm_value);
+        break;
+      default:
+        assert(false);
+    }
+
+  return true;
+}
+
+bool ju87_mov_reg_mem(ctx, reg, mem)
+  ju87_encode_ctx *ctx;
+  ju87_reg reg;
+  ju87_mem mem;
+{
+  prefix_modrm_sib pms;
+  clr_pms(&pms);
+  if (!make_pms_reg_mem(&pms, reg, mem))
+    {
+      return false;
+    }
+
+  encode_prefix(ctx, &pms);
+  switch (reg.type)
+    {
+      case JU87_REG_8BIT:
+        encode_ctx_push_byte(ctx, 0x88);
+        break;
+      case JU87_REG_16BIT:
+      case JU87_REG_32BIT:
+      case JU87_REG_64BIT:
+        encode_ctx_push_byte(ctx, 0x89);
+        break;
+      default:
+        assert(false);
+    }
+
+  encode_modrm_sib(ctx, &pms);
+  if (mem.offset)
+    {
+      if (mem.offset <= UINT8_MAX)
+        {
+          encode_ctx_push_byte(ctx, (uint8_t)mem.offset);
+        }
+      else
+        {
+          encode_ctx_push_dword(ctx, mem.offset);
+        }
+    }
+
+  return true;
+}
+
+bool ju87_mov_mem_reg(ctx, mem, reg)
+  ju87_encode_ctx *ctx;
+  ju87_mem mem;
+  ju87_reg reg;
+{
+  prefix_modrm_sib pms;
+  clr_pms(&pms);
+  if (!make_pms_reg_mem(&pms, reg, mem))
+    {
+      return false;
+    }
+
+  encode_prefix(ctx, &pms);
+  switch (reg.type)
+    {
+      case JU87_REG_8BIT:
+        encode_ctx_push_byte(ctx, 0x8a);
+      break;
+      case JU87_REG_16BIT:
+      case JU87_REG_32BIT:
+      case JU87_REG_64BIT:
+        encode_ctx_push_byte(ctx, 0x8b);
+      break;
+      default:
+        assert(false);
+    }
+
+  encode_modrm_sib(ctx, &pms);
+  if (mem.offset)
+    {
+      if (mem.offset <= UINT8_MAX)
+        {
+          encode_ctx_push_byte(ctx, (uint8_t)mem.offset);
+        }
+      else
+        {
+          encode_ctx_push_dword(ctx, mem.offset);
+        }
+    }
+
+  return true;
+}
 
 bool ju87_mov_reg(ju87_encode_ctx *ctx, ju87_reg src, ju87_reg dst) {}
 
@@ -420,4 +557,23 @@ void ju87_repz_ret(ctx)
 {
   encode_ctx_push_byte(ctx, 0xF3);
   encode_ctx_push_byte(ctx, 0xC3);
+}
+
+void ju87_dbg_dump_buf(ctx)
+  ju87_encode_ctx *ctx;
+{
+  size_t i;
+  for (i = 0; i < ctx->offset; i++)
+    {
+      uint8_t byte = ctx->buf[i];
+      fprintf(stderr, "%02x ", byte);
+    }
+  fputc('\n', stderr);
+}
+
+void ju87_dbg_clr_buf(ctx)
+  ju87_encode_ctx *ctx;
+{
+  ctx->offset = 0;
+  memset(ctx->buf, 0, ctx->bufsiz);
 }

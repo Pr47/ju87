@@ -8,19 +8,18 @@ main(argc, argv)
   ju87_encode_ctx ctx;
   ju87_encode_ctx_init(&ctx, 8192, JU87_ENDIAN_LITTLE, false);
 
-  /* movabsq $1145141919810, %rax */
-  ju87_mov_imm_reg(&ctx,
-                   ju87_addr_imm(0xA0B0C0D010203040ULL, JU87_W_QWORD).value.imm,
-                   JU87_REG64(JU87_RAX));
-  /* repz ret */
-  ju87_repz_ret(&ctx);
+  ju87_mov_reg_mem(&ctx,
+                   JU87_REG64(JU87_RAX),
+                   (ju87_mem) { JU87_REG64(JU87_RCX), JU87_REG64(JU87_RDX), 4, 360 });
 
-  size_t i;
-  for (i = 0; i < ctx.offset; i++)
-    {
-      uint8_t byte = ctx.buf[i];
-      fprintf(stderr, "%02x ", byte);
-    }
+  ju87_dbg_dump_buf(&ctx);
+  ju87_dbg_clr_buf(&ctx);
+
+  ju87_mov_reg_mem(&ctx,
+                   JU87_REG64(JU87_R12),
+                   (ju87_mem) { JU87_REG64(JU87_R8), JU87_REG64(JU87_R9), 8, 60 });
+  ju87_dbg_dump_buf(&ctx);
+  ju87_dbg_clr_buf(&ctx);
 
   return 0;
 }
